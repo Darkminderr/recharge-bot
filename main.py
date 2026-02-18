@@ -19,7 +19,7 @@ TOKEN = '7510297537:AAEeCr_pl4CndrNCpBpr7Ac8mL3jlFKpyRk'
 URL = "https://superprofile.bio/vp/6994a964b7a14d00133409f7"
 
 async def get_qr(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    msg = await update.message.reply_text("⏳ സൂപ്പർ പ്രൊഫൈലിലേക്ക് കണക്ട് ചെയ്യുന്നു...")
+    msg = await update.message.reply_text("⏳ പെയ്‌മെന്റ് പേജിലേക്ക് കണക്ട് ചെയ്യുന്നു...")
     async with async_playwright() as p:
         try:
             browser = await p.chromium.launch(args=['--no-sandbox', '--disable-dev-shm-usage'])
@@ -32,60 +32,51 @@ async def get_qr(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # 1. സൈറ്റ് തുറക്കുന്നു
             await page.goto(URL, wait_until="networkidle", timeout=60000)
             
-            # 2. ആദ്യത്തെ ബട്ടൺ ക്ലിക്ക് ചെയ്യുന്നു
+            # 2. ആദ്യത്തെ 'Get it now' ക്ലിക്ക്
             btn_selector = 'button.checkout-proceed-cta'
             await page.wait_for_selector(btn_selector, timeout=15000)
             await page.click(btn_selector, force=True) 
             
-            await msg.edit_text("📝 വിവരങ്ങൾ നൽകുന്നു...")
+            await msg.edit_text("📝 വിവരങ്ങൾ പൂരിപ്പിക്കുന്നു...")
+            await asyncio.sleep(2) # വിൻഡോ തെളിയാൻ സമയം
             
-            # ചെക്കൗട്ട് വിൻഡോ പൂർണ്ണമായും തെളിയാൻ സമയം നൽകുന്നു
-            await asyncio.sleep(3) 
+            # 3. ഇമെയിൽ നൽകുന്നു (നിങ്ങൾ തന്ന പുതിയ ഇമെയിൽ)
+            email_field = page.locator('input[type="email"], input[placeholder*="Email"]')
+            await email_field.wait_for(state="visible", timeout=10000)
+            await email_field.click()
+            await email_field.fill("") # പഴയത് ഉണ്ടെങ്കിൽ മായ്ക്കുന്നു
+            await email_field.type('sanjuchacko628@gmail.com', delay=50)
             
-            # 3. ഇമെയിൽ നൽകുന്നു (Placeholder വഴിയുള്ള തിരയൽ)
-            try:
-                # ഇമെയിൽ ബോക്സിൽ ക്ലിക്ക് ചെയ്ത ശേഷം ടൈപ്പ് ചെയ്യുന്നു
-                email_box = page.get_by_placeholder("Email Address")
-                await email_box.wait_for(state="visible", timeout=15000)
-                await email_box.click()
-                await email_box.fill('sanjuchacko682@gmail.com')
-            except Exception as e:
-                print(f"Email error: {e}")
-
-            # 4. ഫോൺ നമ്പർ നൽകുന്നു (തുടക്കത്തിൽ 91 ചേർക്കുന്നു)
-            try:
-                # ഫോൺ നമ്പർ ബോക്സിൽ ക്ലിക്ക് ചെയ്ത ശേഷം 91 ചേർത്ത് ടൈപ്പ് ചെയ്യുന്നു
-                phone_box = page.locator('input[type="tel"]')
-                await phone_box.click()
-                await page.keyboard.type('9188897019') # 91 ഇട്ടു നൽകുന്നു
-            except Exception as e:
-                print(f"Phone error: {e}")
+            # 4. ഫോൺ നമ്പർ നൽകുന്നു
+            phone_field = page.locator('input[type="tel"]')
+            await phone_field.click()
+            await phone_field.fill("") 
+            await phone_field.type('9188897019', delay=50)
             
-            # 5. രണ്ടാമത്തെ ക്ലിക്ക് - പെയ്‌മെന്റ് പേജിലേക്ക്
+            # 5. ബട്ടൺ ക്ലിക്ക് ചെയ്യുന്നു (പെയ്‌മെന്റ് പേജിലേക്ക്)
             await page.click(btn_selector, force=True)
             
-            await msg.edit_text("📸 പെയ്‌മെന്റ് പേജ് ലോഡ് ആകുന്നു...")
+            await msg.edit_text("📸 പെയ്‌മെന്റ് പേജ് എടുക്കുന്നു...")
             
-            # പെയ്‌മെന്റ് പേജ് ലോഡ് ആകാൻ 15 സെക്കൻഡ് നൽകുന്നു
+            # പെയ്‌മെന്റ് പേജ് ലോഡ് ആകാൻ കാത്തിരിക്കുന്നു
             await asyncio.sleep(15) 
             
-            # നിലവിലെ പേജ് ലിങ്ക് എടുക്കുന്നു
-            final_url = page.url
+            # ലിങ്ക് എടുക്കുന്നു
+            payment_url = page.url
             
             # സ്ക്രീൻഷോട്ട് എടുക്കുന്നു
-            screenshot_path = "payment_qr.png"
+            screenshot_path = "payment_final.png"
             await page.screenshot(path=screenshot_path)
             
-            # ലിങ്കും സ്ക്രീൻഷോട്ടും യൂസർക്ക് അയക്കുന്നു
+            # യൂസർക്ക് അയക്കുന്നു
             await update.message.reply_photo(
                 photo=open(screenshot_path, 'rb'), 
-                caption=f"✅ പെയ്‌മെന്റ് പേജ് തയ്യാർ!\n\n🔗 ലിങ്ക്: {final_url}\n\nഈ ലിങ്ക് വഴിയോ ക്യുആർ വഴിയോ പെയ്‌മെന്റ് പൂർത്തിയാക്കാം."
+                caption=f"✅ പെയ്‌മെന്റ് പേജ് തയ്യാർ!\n\n🔗 ലിങ്ക്: {payment_url}"
             )
             
         except Exception as e:
-            # എറർ വന്നാൽ ആ സ്ക്രീൻ അയക്കുന്നു
-            await page.screenshot(path="debug_error.png")
-            await update.message.reply_photo(photo=open("debug_error.png", 'rb'), caption=f"എറർ: {str(e)}")
+            await page.screenshot(path="error_debug.png")
+            await update.message.reply_photo(photo=open("error_debug.png", 'rb'), caption=f"എറർ: {str(e)}")
         finally:
             await browser.close()
 
