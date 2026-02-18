@@ -22,49 +22,52 @@ async def get_qr(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = await update.message.reply_text("⏳ സൂപ്പർ പ്രൊഫൈലിലേക്ക് കണക്ട് ചെയ്യുന്നു...")
     async with async_playwright() as p:
         try:
-            # മൊബൈൽ വ്യൂ ഉറപ്പാക്കാൻ കൃത്യമായ viewport നൽകുന്നു
             browser = await p.chromium.launch(args=['--no-sandbox', '--disable-dev-shm-usage'])
-            # iPhone 13 വലിപ്പത്തിലുള്ള സ്ക്രീൻ സെറ്റ് ചെയ്യുന്നു
             context = await browser.new_context(
                 user_agent="Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1",
                 viewport={'width': 390, 'height': 844}
             )
             page = await context.new_page()
             
+            # 1. സൈറ്റ് തുറക്കുന്നു
             await page.goto(URL, wait_until="domcontentloaded", timeout=60000)
             
-            # 1. ആദ്യത്തെ കറുത്ത ബട്ടൺ ക്ലിക്ക് ചെയ്യുന്നു (Force Click ഉപയോഗിക്കുന്നു)
-            # ലോഗ് പ്രകാരം 'checkout-proceed-cta' എന്ന ക്ലാസ്സാണ് ഇതിനുള്ളത്
+            # 2. ആദ്യത്തെ 'Get it now' ബട്ടൺ ക്ലിക്ക് ചെയ്യുന്നു
             btn_selector = 'button.checkout-proceed-cta'
             await page.wait_for_selector(btn_selector, timeout=15000)
             await page.click(btn_selector, force=True) 
             
             await msg.edit_text("📝 വിവരങ്ങൾ നൽകുന്നു...")
             
-            # 2. വിവരങ്ങൾ പൂരിപ്പിക്കുന്നു
-            await page.wait_for_selector('input[type="email"]', timeout=10000)
-            await page.fill('input[type="email"]', 'sanjuchacko682@gmail.com')
-            await page.fill('input[type="tel"]', '9188897019')
+            # --- FIX: ചെക്കൗട്ട് പേജ് ലോഡ് ആകാൻ 2 സെക്കൻഡ് കാത്തിരിക്കുന്നു ---
+            await asyncio.sleep(2) 
             
-            # 3. രണ്ടാമത്തെ ക്ലിക്ക് (വിവരങ്ങൾ നൽകിയ ശേഷം)
+            # 3. ഇമെയിൽ നൽകുന്നു (Selector കൂടുതൽ കൃത്യമാക്കി)
+            email_input = 'input[placeholder="Email Address"]'
+            await page.wait_for_selector(email_input, state="visible", timeout=20000)
+            await page.fill(email_input, 'sanjuchacko682@gmail.com')
+            
+            # 4. ഫോൺ നമ്പർ നൽകുന്നു
+            phone_input = 'input[type="tel"]'
+            await page.fill(phone_input, '9188897019')
+            
+            # 5. രണ്ടാമത്തെ 'Get it now' ക്ലിക്ക് ചെയ്യുന്നു
             await page.click(btn_selector, force=True)
             
-            await msg.edit_text("📸 പെയ്‌മെന്റ് പേജ് ലോഡ് ആകുന്നു...")
+            await msg.edit_text("📸 പെയ്‌മെന്റ് ക്യുആർ എടുക്കുന്നു...")
             
-            # പെയ്‌മെന്റ് പേജ് വരാൻ അല്പം കൂടുതൽ സമയം നൽകുന്നു
-            await asyncio.sleep(12) 
+            # പെയ്‌മെന്റ് പേജ് വരാൻ സമയം നൽകുന്നു
+            await asyncio.sleep(15) 
             
             # സ്ക്രീൻഷോട്ട് എടുക്കുന്നു
-            await page.screenshot(path="payment.png", full_page=False)
-            await update.message.reply_photo(photo=open("payment.png", 'rb'), caption="✅ പെയ്‌മെന്റ് പൂർത്തിയാക്കൂ.")
+            screenshot_path = "payment_qr.png"
+            await page.screenshot(path=screenshot_path)
+            await update.message.reply_photo(photo=open(screenshot_path, 'rb'), caption="✅ ഇതാ പെയ്‌മെന്റ് ക്യുആർ! പെയ്‌മെന്റ് കഴിഞ്ഞാലുടൻ ഗെയിമിൽ പണം ആഡ് ആകും.")
             
         except Exception as e:
-            # എറർ വന്നാൽ എന്താണ് സംഭവിക്കുന്നത് എന്ന് കാണാൻ ഒരു ഫോട്ടോ എടുക്കുന്നു
-            try:
-                await page.screenshot(path="error_snap.png")
-                await update.message.reply_photo(photo=open("error_snap.png", 'rb'), caption=f"Error Snap: {str(e)}")
-            except:
-                await update.message.reply_text(f"ക്ഷമിക്കണം, ഒരു എറർ വന്നു: {str(e)}")
+            # എറർ വന്നാൽ സ്ക്രീൻഷോട്ട് എടുക്കുന്നു
+            await page.screenshot(path="debug_error.png")
+            await update.message.reply_photo(photo=open("debug_error.png", 'rb'), caption=f"എറർ സംഭവിച്ചു: {str(e)}")
         finally:
             await browser.close()
 
