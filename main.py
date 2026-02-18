@@ -9,7 +9,7 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 
 app = Flask('')
 @app.route('/')
-def home(): return "Bot is Alive and Running!"
+def home(): return "Bot is Online!"
 
 def run_flask():
     port = int(os.environ.get("PORT", 8080))
@@ -30,44 +30,62 @@ async def get_qr(update: Update, context: ContextTypes.DEFAULT_TYPE):
             page = await context.new_page()
             
             # 1. സൈറ്റ് തുറക്കുന്നു
-            await page.goto(URL, wait_until="domcontentloaded", timeout=60000)
+            await page.goto(URL, wait_until="networkidle", timeout=60000)
             
-            # 2. ആദ്യത്തെ 'Get it now' ബട്ടൺ ക്ലിക്ക് ചെയ്യുന്നു
+            # 2. ആദ്യത്തെ ബട്ടൺ ക്ലിക്ക് ചെയ്യുന്നു
             btn_selector = 'button.checkout-proceed-cta'
             await page.wait_for_selector(btn_selector, timeout=15000)
             await page.click(btn_selector, force=True) 
             
             await msg.edit_text("📝 വിവരങ്ങൾ നൽകുന്നു...")
             
-            # --- FIX: ചെക്കൗട്ട് പേജ് ലോഡ് ആകാൻ 2 സെക്കൻഡ് കാത്തിരിക്കുന്നു ---
-            await asyncio.sleep(2) 
+            # ചെക്കൗട്ട് വിൻഡോ പൂർണ്ണമായും തെളിയാൻ സമയം നൽകുന്നു
+            await asyncio.sleep(3) 
             
-            # 3. ഇമെയിൽ നൽകുന്നു (Selector കൂടുതൽ കൃത്യമാക്കി)
-            email_input = 'input[placeholder="Email Address"]'
-            await page.wait_for_selector(email_input, state="visible", timeout=20000)
-            await page.fill(email_input, 'sanjuchacko682@gmail.com')
+            # 3. ഇമെയിൽ നൽകുന്നു (Placeholder വഴിയുള്ള തിരയൽ)
+            try:
+                # ഇമെയിൽ ബോക്സിൽ ക്ലിക്ക് ചെയ്ത ശേഷം ടൈപ്പ് ചെയ്യുന്നു
+                email_box = page.get_by_placeholder("Email Address")
+                await email_box.wait_for(state="visible", timeout=15000)
+                await email_box.click()
+                await email_box.fill('sanjuchacko682@gmail.com')
+            except Exception as e:
+                print(f"Email error: {e}")
+
+            # 4. ഫോൺ നമ്പർ നൽകുന്നു (തുടക്കത്തിൽ 91 ചേർക്കുന്നു)
+            try:
+                # ഫോൺ നമ്പർ ബോക്സിൽ ക്ലിക്ക് ചെയ്ത ശേഷം 91 ചേർത്ത് ടൈപ്പ് ചെയ്യുന്നു
+                phone_box = page.locator('input[type="tel"]')
+                await phone_box.click()
+                await page.keyboard.type('9188897019') # 91 ഇട്ടു നൽകുന്നു
+            except Exception as e:
+                print(f"Phone error: {e}")
             
-            # 4. ഫോൺ നമ്പർ നൽകുന്നു
-            phone_input = 'input[type="tel"]'
-            await page.fill(phone_input, '9188897019')
-            
-            # 5. രണ്ടാമത്തെ 'Get it now' ക്ലിക്ക് ചെയ്യുന്നു
+            # 5. രണ്ടാമത്തെ ക്ലിക്ക് - പെയ്‌മെന്റ് പേജിലേക്ക്
             await page.click(btn_selector, force=True)
             
-            await msg.edit_text("📸 പെയ്‌മെന്റ് ക്യുആർ എടുക്കുന്നു...")
+            await msg.edit_text("📸 പെയ്‌മെന്റ് പേജ് ലോഡ് ആകുന്നു...")
             
-            # പെയ്‌മെന്റ് പേജ് വരാൻ സമയം നൽകുന്നു
+            # പെയ്‌മെന്റ് പേജ് ലോഡ് ആകാൻ 15 സെക്കൻഡ് നൽകുന്നു
             await asyncio.sleep(15) 
+            
+            # നിലവിലെ പേജ് ലിങ്ക് എടുക്കുന്നു
+            final_url = page.url
             
             # സ്ക്രീൻഷോട്ട് എടുക്കുന്നു
             screenshot_path = "payment_qr.png"
             await page.screenshot(path=screenshot_path)
-            await update.message.reply_photo(photo=open(screenshot_path, 'rb'), caption="✅ ഇതാ പെയ്‌മെന്റ് ക്യുആർ! പെയ്‌മെന്റ് കഴിഞ്ഞാലുടൻ ഗെയിമിൽ പണം ആഡ് ആകും.")
+            
+            # ലിങ്കും സ്ക്രീൻഷോട്ടും യൂസർക്ക് അയക്കുന്നു
+            await update.message.reply_photo(
+                photo=open(screenshot_path, 'rb'), 
+                caption=f"✅ പെയ്‌മെന്റ് പേജ് തയ്യാർ!\n\n🔗 ലിങ്ക്: {final_url}\n\nഈ ലിങ്ക് വഴിയോ ക്യുആർ വഴിയോ പെയ്‌മെന്റ് പൂർത്തിയാക്കാം."
+            )
             
         except Exception as e:
-            # എറർ വന്നാൽ സ്ക്രീൻഷോട്ട് എടുക്കുന്നു
+            # എറർ വന്നാൽ ആ സ്ക്രീൻ അയക്കുന്നു
             await page.screenshot(path="debug_error.png")
-            await update.message.reply_photo(photo=open("debug_error.png", 'rb'), caption=f"എറർ സംഭവിച്ചു: {str(e)}")
+            await update.message.reply_photo(photo=open("debug_error.png", 'rb'), caption=f"എറർ: {str(e)}")
         finally:
             await browser.close()
 
