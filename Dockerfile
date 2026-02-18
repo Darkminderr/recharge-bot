@@ -1,11 +1,14 @@
-FROM mcr.microsoft.com/playwright/python:v1.40.0-jammy
+# പുതിയ വേർഷൻ (v1.58.0) ഉപയോഗിക്കുന്നു
+FROM mcr.microsoft.com/playwright/python:v1.58.0-jammy
 
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
-# പോർട്ട് സെറ്റിംഗ്സ്
+# ബ്രൗസർ ഇൻസ്റ്റാൾ ചെയ്യുന്നു
+RUN playwright install chromium --with-deps
+
 ENV PORT 8080
 EXPOSE 8080
 
