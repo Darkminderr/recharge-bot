@@ -45,40 +45,43 @@ async def playwright_task(user_upi_id):
             browser_context = await browser.new_context(viewport={'width': 1366, 'height': 768})
             page = await browser_context.new_page()
             
-            await page.goto(URL, wait_until="networkidle", timeout=60000)
-            await asyncio.sleep(4)
+            # (മാറ്റം 1) പേജ് വേഗത്തിൽ ലോഡ് ആകാനുള്ള കമാൻഡ്
+            await page.goto(URL, wait_until="domcontentloaded", timeout=60000)
+            await asyncio.sleep(2) # 4 സെക്കൻഡ് എന്നത് 2 ആക്കി കുറച്ചു
             
-            # 1. ഇമെയിൽ നൽകുന്നു (വൈകുന്നേരം വർക്ക് ചെയ്ത പഴയ രീതി)
+            # 1. ഇമെയിൽ നൽകുന്നു (പഴയ വർക്കിംഗ് രീതി തന്നെ)
             all_inputs = page.locator('input')
             await all_inputs.first.wait_for(state="visible", timeout=15000)
             await all_inputs.first.click(force=True)
-            await page.keyboard.type("sanjuchacko628@gmail.com", delay=50)
+            # (മാറ്റം 2) ടൈപ്പിങ് സ്പീഡ് കൂട്ടി (delay 50 ൽ നിന്നും 20 ആക്കി)
+            await page.keyboard.type("sanjuchacko628@gmail.com", delay=20)
             
-            await asyncio.sleep(2)
+            await asyncio.sleep(1) # 2 സെക്കൻഡ് 1 ആക്കി കുറച്ചു
             
-            # 2. Get it now ക്ലിക്ക് ചെയ്യുന്നു (പഴയ രീതി)
+            # 2. Get it now ക്ലിക്ക് ചെയ്യുന്നു 
             get_btn = page.locator('button.checkout-proceed-cta')
             await get_btn.last.click(force=True)
             
             send_msg("⏳ പെയ്‌മെന്റ് ഗേറ്റ്‌വേയിലേക്ക് കണക്ട് ചെയ്യുന്നു...")
-            await asyncio.sleep(6) 
+            await asyncio.sleep(3) # 6 സെക്കൻഡ് കാത്തിരിപ്പ് 3 ആക്കി കുറച്ചു
             
-            # 3. UPI ഓപ്ഷൻ ക്ലിക്ക് ചെയ്യുന്നു (എറർ വരാത്ത ആ പഴയ ലൈൻ)
+            # 3. UPI ഓപ്ഷൻ ക്ലിക്ക് ചെയ്യുന്നു 
             await page.locator('text="UPI"').last.click(force=True)
-            await asyncio.sleep(3)
+            await asyncio.sleep(1.5) # 3 സെക്കൻഡ് 1.5 ആക്കി കുറച്ചു
             
             # 4. കൃത്യമായി മൊബൈൽ നമ്പർ നൽകുന്നു (രണ്ടാമത്തെ ബോക്സിൽ)
             upi_input = page.locator('input[placeholder*="Mobile No."]').last
             await upi_input.click(force=True)
-            await page.keyboard.type(user_upi_id, delay=100)
+            # (മാറ്റം 3) നമ്പറും വേഗത്തിൽ ടൈപ്പ് ചെയ്യുന്നു
+            await page.keyboard.type(user_upi_id, delay=30)
             
-            await asyncio.sleep(4)
+            await asyncio.sleep(2) # 4 സെക്കൻഡ് 2 ആക്കി കുറച്ചു
             
             try:
                 verify_link = page.locator('text="Verify"').last
                 if await verify_link.is_visible(timeout=2000):
                     await verify_link.click(force=True)
-                    await asyncio.sleep(3) 
+                    await asyncio.sleep(2) 
             except:
                 pass
             
@@ -91,17 +94,17 @@ async def playwright_task(user_upi_id):
             
             # 6. ടൈമർ വരാൻ കാത്തിരിക്കുന്നു
             try:
-                await page.wait_for_selector('text="PAGE EXPIRES IN"', timeout=15000)
+                await page.wait_for_selector('text="PAGE EXPIRES IN"', timeout=10000)
             except:
                 if await proceed_btn.is_visible():
                     await proceed_btn.click(force=True)
-                    await asyncio.sleep(4)
+                    await asyncio.sleep(2)
                 
             # 7. ടൈമർ സ്ക്രീൻഷോട്ട് എടുത്ത് അയക്കുന്നു
             await page.screenshot(path="timer.png")
             send_photo("timer.png", f"✅ നിങ്ങളുടെ നമ്പറിലേക്ക് ( {user_upi_id} ) പെയ്‌മെന്റ് റിക്വസ്റ്റ് അയച്ചിട്ടുണ്ട്!\n\nദയവായി നിങ്ങളുടെ ആപ്പ് തുറന്ന് 8 മിനിറ്റിനുള്ളിൽ പെയ്‌മെന്റ് പൂർത്തിയാക്കുക.")
             
-            # 8. പെയ്‌മെന്റ് സക്സസ് ആകാൻ സ്കാൻ ചെയ്യുന്നു (8 മിനിറ്റ്)
+            # 8. പെയ്‌മെന്റ് സക്സസ് ആകാൻ സ്കാൻ ചെയ്യുന്നു (ഓരോ 2 സെക്കൻഡിലും)
             payment_success = False
             for _ in range(240):
                 await asyncio.sleep(2) 
@@ -114,7 +117,7 @@ async def playwright_task(user_upi_id):
                     pass
             
             if payment_success:
-                await asyncio.sleep(2) 
+                await asyncio.sleep(1) 
                 await page.screenshot(path="success.png")
                 send_photo("success.png", f"🎉 പെയ്‌മെന്റ് വിജയകരം! ({user_upi_id}) നിങ്ങളുടെ ഗെയിമിലേക്ക് റീചാർജ് തുക ആഡ് ചെയ്തു.")
             else:
