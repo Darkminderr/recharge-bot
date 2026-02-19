@@ -1,28 +1,3 @@
-import os, asyncio, logging, re, requests
-from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
-from playwright.async_api import async_playwright
-from flask import Flask, jsonify
-from threading import Thread
-
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
-
-app = Flask('')
-TOKEN = '7510297537:AAEeCr_pl4CndrNCpBpr7Ac8mL3jlFKpyRk'
-URL = "https://superprofile.bio/vp/6994a964b7a14d00133409f7"
-
-# നിങ്ങളുടെ ടെലിഗ്രാം ചാറ്റ് ഐഡി സേവ് ചെയ്യാൻ
-ADMIN_CHAT_ID = None
-
-def send_msg(text):
-    if ADMIN_CHAT_ID:
-        requests.get(f"https://api.telegram.org/bot{TOKEN}/sendMessage", params={'chat_id': ADMIN_CHAT_ID, 'text': text})
-
-def send_photo(photo_path, caption):
-    if ADMIN_CHAT_ID:
-        with open(photo_path, 'rb') as f:
-            requests.post(f"https://api.telegram.org/bot{TOKEN}/sendPhoto", data={'chat_id': ADMIN_CHAT_ID, 'caption': caption}, files={'photo': f})
-
 async def playwright_task(user_upi_id):
     send_msg(f"⚡ ഗെയിമിൽ നിന്നും പുതിയ റീചാർജ് റിക്വസ്റ്റ് വന്നിട്ടുണ്ട്! നമ്പർ: {user_upi_id}\nഅതിവേഗം പെയ്‌മെന്റ് തയ്യാറാക്കുന്നു...")
     
@@ -34,17 +9,27 @@ async def playwright_task(user_upi_id):
             
             await page.goto(URL, wait_until="domcontentloaded", timeout=60000)
             
+            # 1. ഇമെയിൽ നൽകുന്നു
             all_inputs = page.locator('input')
             await all_inputs.first.wait_for(state="visible", timeout=10000)
             await all_inputs.first.fill("sanjuchacko628@gmail.com")
             
+            # ഫിക്സ്: വെബ്സൈറ്റിന് ഇമെയിൽ പ്രോസസ്സ് ചെയ്യാൻ 1 സെക്കൻഡ് സമയം നൽകുന്നു
+            await asyncio.sleep(1)
+            
+            # 2. Get it now ക്ലിക്ക് ചെയ്യുന്നു
             get_btn = page.locator('button.checkout-proceed-cta').last
             await get_btn.click(force=True)
             
+            # ഫിക്സ്: പോപ്പ്-അപ്പ് വിൻഡോ കൃത്യമായി വരാൻ 3 സെക്കൻഡ് കാത്തിരിക്കുന്നു
+            await asyncio.sleep(3)
+            
+            # 3. UPI ഓപ്ഷൻ ക്ലിക്ക് ചെയ്യുന്നു (സമയം 15000 ആയി കൂട്ടി)
             upi_option = page.locator('text="UPI"').last
-            await upi_option.wait_for(state="visible", timeout=8000)
+            await upi_option.wait_for(state="visible", timeout=15000)
             await upi_option.click(force=True)
             
+            # 4. മൊബൈൽ നമ്പർ നൽകുന്നു
             upi_input = page.locator('input[placeholder*="Mobile No."]').last
             await upi_input.wait_for(state="visible", timeout=5000)
             await upi_input.click(force=True)
@@ -58,16 +43,17 @@ async def playwright_task(user_upi_id):
                     await asyncio.sleep(2)
             except: pass
             
+            # 5. Proceed ബട്ടൺ ക്ലിക്ക് ചെയ്യുന്നു
             proceed_btn = page.locator('button:has-text("Proceed"):visible').last
             await proceed_btn.wait_for(state="visible", timeout=5000)
             await proceed_btn.click(force=True)
             
             try:
-                await page.wait_for_selector('text="PAGE EXPIRES IN"', timeout=8000)
+                await page.wait_for_selector('text="PAGE EXPIRES IN"', timeout=10000)
             except:
                 if await proceed_btn.is_visible():
                     await proceed_btn.click(force=True)
-                    await page.wait_for_selector('text="PAGE EXPIRES IN"', timeout=8000)
+                    await page.wait_for_selector('text="PAGE EXPIRES IN"', timeout=10000)
                 
             await page.screenshot(path="timer.png")
             send_photo("timer.png", f"✅ ഗെയിമിലെ യൂസറുടെ നമ്പറിലേക്ക് ( {user_upi_id} ) പെയ്‌മെന്റ് റിക്വസ്റ്റ് അയച്ചു!\n8 മിനിറ്റിനുള്ളിൽ പെയ്‌മെന്റ് പൂർത്തിയാക്കാൻ കാത്തിരിക്കുന്നു.")
@@ -94,46 +80,3 @@ async def playwright_task(user_upi_id):
             send_photo("error.png", f"❌ ഒരു തടസ്സം നേരിട്ടു: {str(e)}")
         finally:
             await browser.close()
-
-def run_pw_thread(user_upi_id):
-    asyncio.run(playwright_task(user_upi_id))
-
-# ഗെയിമിൽ നിന്നും നമ്പർ സ്വീകരിക്കാനുള്ള സീക്രട്ട് API ലിങ്ക്
-@app.route('/api/recharge/<mobile_number>')
-def api_recharge(mobile_number):
-    if not re.fullmatch(r'\d{10}', mobile_number):
-        return jsonify({"status": "error", "message": "Invalid mobile number"}), 400
-    if not ADMIN_CHAT_ID:
-        return jsonify({"status": "error", "message": "Admin chat ID not set. Send /start in Telegram first."}), 400
-        
-    Thread(target=run_pw_thread, args=(mobile_number,)).start()
-    return jsonify({"status": "success", "message": f"Recharge process started for {mobile_number}"})
-
-@app.route('/')
-def home(): return "API Bot is Running!"
-
-def run_flask():
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host='0.0.0.0', port=port)
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global ADMIN_CHAT_ID
-    ADMIN_CHAT_ID = update.message.chat_id
-    await update.message.reply_text("✅ ബോട്ടിലേക്ക് കണക്ട് ചെയ്തു! ഇനി ഗെയിമിൽ നിന്നും നേരിട്ട് റീചാർജ് റിക്വസ്റ്റുകൾ ഇങ്ങോട്ട് വരുന്നതായിരിക്കും.")
-
-async def handle_direct_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global ADMIN_CHAT_ID
-    ADMIN_CHAT_ID = update.message.chat_id
-    user_text = update.message.text.strip()
-    if re.fullmatch(r'\d{10}', user_text):
-        Thread(target=run_pw_thread, args=(user_text,)).start()
-    else:
-        await update.message.reply_text("⚠️ ദയവായി 10 അക്ക മൊബൈൽ നമ്പർ കൃത്യമായി നൽകുക.")
-
-if __name__ == '__main__':
-    Thread(target=run_flask).start()
-    application = ApplicationBuilder().token(TOKEN).build()
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_direct_number))
-    print("Bot is Starting with Game API Integration...")
-    application.run_polling()
