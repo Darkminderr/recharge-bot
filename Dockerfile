@@ -1,8 +1,9 @@
-FROM python:3.10-slim
+FROM mcr.microsoft.com/playwright/python:v1.58.0-jammy
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
+RUN playwright install chromium --with-deps
 ENV PORT 8080
 EXPOSE 8080
 CMD ["python", "main.py"]
