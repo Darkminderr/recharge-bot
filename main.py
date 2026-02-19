@@ -11,7 +11,6 @@ app = Flask('')
 TOKEN = '7510297537:AAEeCr_pl4CndrNCpBpr7Ac8mL3jlFKpyRk'
 URL = "https://superprofile.bio/vp/6994a964b7a14d00133409f7"
 
-# നിങ്ങളുടെ ടെലിഗ്രാം ചാറ്റ് ഐഡി സേവ് ചെയ്യാൻ
 ADMIN_CHAT_ID = None
 
 def send_msg(text):
@@ -24,7 +23,7 @@ def send_photo(photo_path, caption):
             requests.post(f"https://api.telegram.org/bot{TOKEN}/sendPhoto", data={'chat_id': ADMIN_CHAT_ID, 'caption': caption}, files={'photo': f})
 
 async def playwright_task(user_upi_id):
-    send_msg(f"⚡ ഗെയിമിൽ നിന്നും പുതിയ റീചാർജ് റിക്വസ്റ്റ് വന്നിട്ടുണ്ട്! നമ്പർ: {user_upi_id}\nഅതിവേഗം പെയ്‌മെന്റ് തയ്യാറാക്കുന്നു...")
+    send_msg(f"⏳ ഡീറ്റെയിൽസ് എന്റർ ചെയ്യുന്നു... (നമ്പർ: {user_upi_id})")
     
     async with async_playwright() as p:
         try:
@@ -32,74 +31,81 @@ async def playwright_task(user_upi_id):
             browser_context = await browser.new_context(viewport={'width': 1366, 'height': 768})
             page = await browser_context.new_page()
             
-            await page.goto(URL, wait_until="domcontentloaded", timeout=60000)
+            await page.goto(URL, wait_until="networkidle", timeout=60000)
+            await asyncio.sleep(4)
             
-            # 1. ഇമെയിൽ നൽകുന്നു
+            # 1. ഇമെയിൽ നൽകുന്നു (പഴയ വർക്കിംഗ് രീതി - മനുഷ്യനെപ്പോലെ ടൈപ്പ് ചെയ്യുന്നു)
             all_inputs = page.locator('input')
-            await all_inputs.first.wait_for(state="visible", timeout=10000)
-            await all_inputs.first.fill("sanjuchacko628@gmail.com")
-            
-            # വെബ്സൈറ്റിന് ഇമെയിൽ മനസ്സിലാക്കാൻ ചെറിയൊരു സമയം നൽകുന്നു
-            await asyncio.sleep(1)
-            
-            # 2. Get it now ക്ലിക്ക് ചെയ്യുന്നു
-            get_btn = page.locator('button.checkout-proceed-cta').last
-            await get_btn.click(force=True)
-            
-            # വിൻഡോ വരാൻ കൃത്യമായി കാത്തിരിക്കുന്നു
-            await asyncio.sleep(3)
-            
-            # 3. UPI ഓപ്ഷൻ ക്ലിക്ക് ചെയ്യുന്നു (ഏറ്റവും പുതിയ ഫിക്സ്)
-            upi_option = page.locator('text="UPI":visible').first
-            await upi_option.wait_for(state="visible", timeout=15000)
-            await upi_option.click(force=True)
-            
-            # 4. യൂസറുടെ യഥാർത്ഥ മൊബൈൽ നമ്പർ നൽകുന്നു (user_upi_id)
-            upi_input = page.locator('input[placeholder*="Mobile No."]').last
-            await upi_input.wait_for(state="visible", timeout=5000)
-            await upi_input.click(force=True)
-            await page.keyboard.type(user_upi_id, delay=50) 
+            await all_inputs.first.wait_for(state="visible", timeout=15000)
+            await all_inputs.first.click(force=True)
+            await page.keyboard.type("sanjuchacko628@gmail.com", delay=50)
             
             await asyncio.sleep(2)
+            
+            # 2. Get it now ക്ലിക്ക് ചെയ്യുന്നു (പഴയ വർക്കിംഗ് രീതി)
+            get_btn = page.locator('button.checkout-proceed-cta')
+            await get_btn.last.click(force=True)
+            
+            send_msg("⏳ പെയ്‌മെന്റ് ഗേറ്റ്‌വേയിലേക്ക് കണക്ട് ചെയ്യുന്നു...")
+            await asyncio.sleep(6) # പഴയതുപോലെ സമയം നൽകുന്നു
+            
+            # 3. UPI ഓപ്ഷൻ ക്ലിക്ക് ചെയ്യുന്നു (പഴയ വർക്കിംഗ് രീതി)
+            await page.locator('text="UPI"').last.click(force=True)
+            await asyncio.sleep(2)
+            
+            # 4. കൃത്യമായി മൊബൈൽ നമ്പർ നൽകുന്നു (പഴയ വർക്കിംഗ് രീതി)
+            upi_input = page.locator('input[placeholder*="Mobile No."]').last
+            await upi_input.click(force=True)
+            await page.keyboard.type(user_upi_id, delay=100)
+            
+            # നമ്പർ വെരിഫൈ ആയി പച്ച ടിക്ക് മാർക്ക് വരാൻ 4 സെക്കൻഡ് കാത്തിരിക്കുന്നു
+            await asyncio.sleep(4)
+            
             try:
                 verify_link = page.locator('text="Verify"').last
-                if await verify_link.is_visible(timeout=1000):
+                if await verify_link.is_visible(timeout=2000):
                     await verify_link.click(force=True)
-                    await asyncio.sleep(2)
-            except: pass
+                    await asyncio.sleep(3) 
+            except:
+                pass
             
-            # 5. Proceed ബട്ടൺ ക്ലിക്ക് ചെയ്യുന്നു
+            # 5. Proceed ബട്ടൺ കൃത്യമായി ക്ലിക്ക് ചെയ്യുന്നു (പഴയ വർക്കിംഗ് രീതി)
             proceed_btn = page.locator('button:has-text("Proceed"):visible').last
-            await proceed_btn.wait_for(state="visible", timeout=5000)
+            await proceed_btn.wait_for(state="visible", timeout=10000)
             await proceed_btn.click(force=True)
             
+            send_msg("⏳ പെയ്‌മെന്റ് ടൈമർ വിൻഡോ ലോഡ് ആകുന്നു...")
+            
+            # 6. ടൈമർ വരാൻ കാത്തിരിക്കുന്നു
             try:
-                await page.wait_for_selector('text="PAGE EXPIRES IN"', timeout=10000)
+                await page.wait_for_selector('text="PAGE EXPIRES IN"', timeout=15000)
             except:
                 if await proceed_btn.is_visible():
                     await proceed_btn.click(force=True)
-                    await page.wait_for_selector('text="PAGE EXPIRES IN"', timeout=10000)
+                    await asyncio.sleep(4)
                 
+            # 7. ടൈമർ സ്ക്രീൻഷോട്ട് എടുത്ത് അയക്കുന്നു
             await page.screenshot(path="timer.png")
-            send_photo("timer.png", f"✅ ഗെയിമിലെ യൂസറുടെ നമ്പറിലേക്ക് ( {user_upi_id} ) പെയ്‌മെന്റ് റിക്വസ്റ്റ് അയച്ചു!\n8 മിനിറ്റിനുള്ളിൽ പെയ്‌മെന്റ് പൂർത്തിയാക്കാൻ കാത്തിരിക്കുന്നു.")
+            send_photo("timer.png", f"✅ നിങ്ങളുടെ നമ്പറിലേക്ക് ( {user_upi_id} ) പെയ്‌മെന്റ് റിക്വസ്റ്റ് അയച്ചിട്ടുണ്ട്!\n\nദയവായി നിങ്ങളുടെ ആപ്പ് തുറന്ന് 8 മിനിറ്റിനുള്ളിൽ പെയ്‌മെന്റ് പൂർത്തിയാക്കുക.")
             
-            # 6. പെയ്‌മെന്റ് സക്സസ് സ്കാൻ ചെയ്യുന്നു (8 മിനിറ്റ് വരെ നോക്കും)
+            # 8. പെയ്‌മെന്റ് സക്സസ് ആകാൻ സ്കാൻ ചെയ്യുന്നു (8 മിനിറ്റ്)
             payment_success = False
             for _ in range(240):
                 await asyncio.sleep(2) 
                 try:
                     page_text = await page.content()
-                    if any(st in page_text for st in ["Payment Successful", "Purchase successful", "Payment made successfully", "Successful"]):
+                    if any(success_text in page_text for success_text in ["Payment Successful", "Purchase successful", "Payment made successfully", "Successful"]):
                         payment_success = True
                         break 
-                except: pass
+                except:
+                    pass
             
             if payment_success:
-                await asyncio.sleep(1)
+                await asyncio.sleep(2) 
                 await page.screenshot(path="success.png")
-                send_photo("success.png", f"🎉 പെയ്‌മെന്റ് വിജയകരം! ({user_upi_id}) ഗെയിമിലേക്ക് റീചാർജ് ആഡ് ചെയ്യാവുന്നതാണ്.")
+                send_photo("success.png", f"🎉 പെയ്‌മെന്റ് വിജയകരം! ({user_upi_id}) നിങ്ങളുടെ ഗെയിമിലേക്ക് റീചാർജ് തുക ആഡ് ചെയ്തു.")
             else:
-                send_msg(f"⏰ സമയം കഴിഞ്ഞു! {user_upi_id} എന്ന നമ്പറിൽ നിന്നും പെയ്‌മെന്റ് ലഭിച്ചില്ല.")
+                send_msg(f"⏰ 8 മിനിറ്റ് സമയം കഴിഞ്ഞു! {user_upi_id} എന്ന നമ്പറിൽ നിന്നും പെയ്‌മെന്റ് ലഭിച്ചില്ല.")
             
         except Exception as e:
             await page.screenshot(path="error.png")
@@ -110,7 +116,6 @@ async def playwright_task(user_upi_id):
 def run_pw_thread(user_upi_id):
     asyncio.run(playwright_task(user_upi_id))
 
-# ഗെയിമിൽ നിന്നും നമ്പർ സ്വീകരിക്കാനുള്ള സീക്രട്ട് API ലിങ്ക്
 @app.route('/api/recharge/<mobile_number>')
 def api_recharge(mobile_number):
     if not re.fullmatch(r'\d{10}', mobile_number):
@@ -122,19 +127,17 @@ def api_recharge(mobile_number):
     return jsonify({"status": "success", "message": f"Recharge process started for {mobile_number}"})
 
 @app.route('/')
-def home(): return "API Bot is Running!"
+def home(): return "UPI Request API Bot is Running!"
 
 def run_flask():
     port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port)
 
-# ടെലിഗ്രാമിൽ നിന്നും ചാറ്റ് ഐഡി മനസ്സിലാക്കാൻ
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global ADMIN_CHAT_ID
     ADMIN_CHAT_ID = update.message.chat_id
-    await update.message.reply_text("✅ ബോട്ടിലേക്ക് കണക്ട് ചെയ്തു! ഇനി ഗെയിമിൽ നിന്നും നേരിട്ട് റീചാർജ് റിക്വസ്റ്റുകൾ ഇങ്ങോട്ട് വരുന്നതായിരിക്കും.")
+    await update.message.reply_text("✅ ബോട്ടിലേക്ക് കണക്ട് ചെയ്തു! ഇനി ഗെയിമിൽ നിന്നോ നേരിട്ടോ റീചാർജ് ചെയ്യാം.")
 
-# നിങ്ങൾ ടെലിഗ്രാമിൽ നേരിട്ട് നമ്പർ ടൈപ്പ് ചെയ്‌താലും വർക്ക് ആകാൻ
 async def handle_direct_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global ADMIN_CHAT_ID
     ADMIN_CHAT_ID = update.message.chat_id
@@ -149,5 +152,5 @@ if __name__ == '__main__':
     application = ApplicationBuilder().token(TOKEN).build()
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_direct_number))
-    print("Bot is Starting with Game API Integration...")
+    print("UPI Request Bot is Starting...")
     application.run_polling()
