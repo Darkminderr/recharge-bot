@@ -11,7 +11,6 @@ app = Flask('')
 TOKEN = '7510297537:AAEeCr_pl4CndrNCpBpr7Ac8mL3jlFKpyRk'
 URL = "https://superprofile.bio/vp/6994a964b7a14d00133409f7"
 
-# എപ്പോഴും /start അടിക്കുന്നത് ഒഴിവാക്കാൻ ഐഡി സേവ് ചെയ്യുന്നു
 def get_admin_id():
     try:
         with open("admin_chat_id.txt", "r") as f:
@@ -49,40 +48,34 @@ async def playwright_task(user_upi_id):
             await page.goto(URL, wait_until="networkidle", timeout=60000)
             await asyncio.sleep(4)
             
-            # 1. ഇമെയിൽ നൽകുന്നു (ഹിഡൻ ഇൻപുട്ടുകൾ ഒഴിവാക്കി സ്ക്രീനിൽ കാണുന്നതിൽ മാത്രം ക്ലിക്ക് ചെയ്യുന്നു)
-            email_input = page.locator('input:visible').first
-            await email_input.wait_for(state="visible", timeout=15000)
-            await email_input.click(force=True)
-            await page.keyboard.type("sanjuchacko628@gmail.com", delay=100)
+            # 1. ഇമെയിൽ നൽകുന്നു (വൈകുന്നേരം വർക്ക് ചെയ്ത പഴയ രീതി)
+            all_inputs = page.locator('input')
+            await all_inputs.first.wait_for(state="visible", timeout=15000)
+            await all_inputs.first.click(force=True)
+            await page.keyboard.type("sanjuchacko628@gmail.com", delay=50)
             
             await asyncio.sleep(2)
             
-            # 2. Get it now ക്ലിക്ക് ചെയ്യുന്നു
-            get_btn = page.locator('button.checkout-proceed-cta:visible').last
-            await get_btn.click(force=True)
+            # 2. Get it now ക്ലിക്ക് ചെയ്യുന്നു (പഴയ രീതി)
+            get_btn = page.locator('button.checkout-proceed-cta')
+            await get_btn.last.click(force=True)
             
             send_msg("⏳ പെയ്‌മെന്റ് ഗേറ്റ്‌വേയിലേക്ക് കണക്ട് ചെയ്യുന്നു...")
             await asyncio.sleep(6) 
             
-            # 3. UPI ഓപ്ഷൻ ക്ലിക്ക് ചെയ്യുന്നു 
-            upi_option = page.locator('text="UPI":visible').first
-            await upi_option.wait_for(state="visible", timeout=15000)
-            await upi_option.click(force=True)
+            # 3. UPI ഓപ്ഷൻ ക്ലിക്ക് ചെയ്യുന്നു (എറർ വരാത്ത ആ പഴയ ലൈൻ)
+            await page.locator('text="UPI"').last.click(force=True)
+            await asyncio.sleep(3)
             
-            await asyncio.sleep(2)
-            
-            # 4. കൃത്യമായി മൊബൈൽ നമ്പർ നൽകുന്നു (user_upi_id)
-            upi_input = page.locator('input[placeholder*="Mobile No."]:visible, input[placeholder*="UPI"]:visible').last
-            if not await upi_input.is_visible():
-                upi_input = page.locator('input:visible').last
-                
+            # 4. കൃത്യമായി മൊബൈൽ നമ്പർ നൽകുന്നു (രണ്ടാമത്തെ ബോക്സിൽ)
+            upi_input = page.locator('input[placeholder*="Mobile No."]').last
             await upi_input.click(force=True)
             await page.keyboard.type(user_upi_id, delay=100)
             
             await asyncio.sleep(4)
             
             try:
-                verify_link = page.locator('text="Verify":visible').last
+                verify_link = page.locator('text="Verify"').last
                 if await verify_link.is_visible(timeout=2000):
                     await verify_link.click(force=True)
                     await asyncio.sleep(3) 
