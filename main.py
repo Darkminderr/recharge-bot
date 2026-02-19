@@ -27,7 +27,7 @@ async def process_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
         
     user_upi_id = context.args[0]
-    msg = await update.message.reply_text("⏳ ഡീറ്റെയിൽസ് എന്റർ ചെയ്യുന്നു...")
+    msg = await update.message.reply_text("⏳ ഇമെയിൽ നൽകി പെയ്‌മെന്റ് പേജിലേക്ക് പോകുന്നു...")
     
     async with async_playwright() as p:
         try:
@@ -36,49 +36,46 @@ async def process_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
             page = await browser_context.new_page()
             
             await page.goto(URL, wait_until="networkidle", timeout=60000)
+            await asyncio.sleep(4) # വെബ്സൈറ്റ് പൂർണ്ണമായും ലോഡ് ആകാൻ കാത്തിരിക്കുന്നു
             
-            # വെബ്സൈറ്റിലെ ഫോം പൂർണ്ണമായും ആക്റ്റീവ് ആകാൻ 3 സെക്കൻഡ് കാത്തിരിക്കുന്നു
-            await asyncio.sleep(3) 
+            # 1. സ്ക്രീനിലുള്ള ആദ്യത്തെ ബോക്സിൽ തന്നെ ഇമെയിൽ നൽകുന്നു (ഏറ്റവും ഉറപ്പുള്ള രീതി)
+            all_inputs = page.locator('input')
+            await all_inputs.first.wait_for(state="visible", timeout=15000)
+            await all_inputs.first.click(force=True)
+            await page.keyboard.type("sanjuchacko628@gmail.com", delay=50)
             
-            # 1. ഇമെയിൽ നൽകുന്നു (ഏറ്റവും കൃത്യമായ സെലക്ടർ ഉപയോഗിച്ച്)
-            email_field = page.locator('input[type="email"], input[name="email"], input[placeholder*="Email"]').first
-            await email_field.wait_for(state="visible", timeout=15000)
-            await email_field.fill("sanjuchacko628@gmail.com")
+            await asyncio.sleep(1)
             
-            # 2. ഫോൺ നമ്പർ നൽകുന്നു
-            phone_field = page.locator('input[type="tel"]').first
-            await phone_field.fill("9188897019")
-            
-            # 3. ഗെറ്റ് ഇറ്റ് നൗ (Get it now) ക്ലിക്ക് ചെയ്യുന്നു
+            # 2. Get it now ക്ലിക്ക് ചെയ്യുന്നു (ഫോൺ നമ്പർ ഓപ്ഷൻ ഒഴിവാക്കി)
             await page.locator('button:has-text("Get it now")').first.click(force=True)
             
             await msg.edit_text("⏳ പെയ്‌മെന്റ് ഗേറ്റ്‌വേയിലേക്ക് കണക്ട് ചെയ്യുന്നു...")
-            await asyncio.sleep(5) 
+            await asyncio.sleep(6) # UPI വിൻഡോ വരാൻ സമയം നൽകുന്നു
             
-            # 4. UPI ഓപ്ഷൻ ക്ലിക്ക് ചെയ്യുന്നു
-            await page.locator('text="UPI"').last.click()
+            # 3. UPI ഓപ്ഷൻ ക്ലിക്ക് ചെയ്യുന്നു
+            await page.locator('text="UPI"').last.click(force=True)
             await asyncio.sleep(2)
             
-            # 5. യൂസർ നൽകിയ നമ്പർ ടൈപ്പ് ചെയ്യുന്നു
-            upi_input = page.locator('input[placeholder*="Mobile No."], input[placeholder*="UPI"]').first
-            await upi_input.fill(user_upi_id)
+            # 4. യൂസർ ടെലിഗ്രാമിൽ തന്ന നമ്പർ ടൈപ്പ് ചെയ്യുന്നു
+            upi_input = page.locator('input[placeholder*="Mobile No."], input[placeholder*="UPI"], input[placeholder*="VPA"]').first
+            await upi_input.click(force=True)
+            await page.keyboard.type(user_upi_id, delay=50)
             
-            # 6. VERIFY ബട്ടൺ ഉണ്ടെങ്കിൽ അത് ക്ലിക്ക് ചെയ്യുന്നു
+            # 5. VERIFY ബട്ടൺ ഉണ്ടെങ്കിൽ ക്ലിക്ക് ചെയ്യുന്നു
             verify_btn = page.locator('text="Verify"')
             if await verify_btn.is_visible():
-                await verify_btn.click()
+                await verify_btn.first.click()
                 await asyncio.sleep(3)
             
-            # 7. Proceed ബട്ടൺ ക്ലിക്ക് ചെയ്യുന്നു
-            await page.locator('button:has-text("Proceed")').first.click()
+            # 6. Proceed ബട്ടൺ ക്ലിക്ക് ചെയ്യുന്നു
+            await page.locator('button:has-text("Proceed")').first.click(force=True)
             
             await msg.edit_text(f"✅ നിങ്ങളുടെ നമ്പറിലേക്ക് ( {user_upi_id} ) പെയ്‌മെന്റ് റിക്വസ്റ്റ് അയച്ചിട്ടുണ്ട്!\n\nദയവായി ആപ്പ് തുറന്ന് ഉടൻ തന്നെ പെയ്‌മെന്റ് പൂർത്തിയാക്കുക.")
             
-            # 8. പെയ്‌മെന്റ് സക്സസ് ആകാൻ കാത്തിരിക്കുന്നു 
+            # 7. പെയ്‌മെന്റ് സക്സസ് ആകാൻ കാത്തിരിക്കുന്നു 
             try:
                 await page.wait_for_selector('text="Payment Successful"', timeout=300000) 
-                await update.message.reply_text("🎉 പെയ്‌മെന്റ് വിജയകരം! നിങ്ങളുടെ ഗെയിമിലേക്ക് റീചാർജ് ആഡ് ചെയ്തിട്ടുണ്ട്.")
-                
+                await update.message.reply_text("🎉 പെയ്‌മെന്റ് വിജയകരം! നിങ്ങളുടെ ഗെയിമിലേക്ക് റീചാർജ് തുക ആഡ് ചെയ്തിട്ടുണ്ട്.")
             except Exception as wait_err:
                 await update.message.reply_text("⏰ സമയം കഴിഞ്ഞു! പെയ്‌മെന്റ് ലഭിച്ചില്ല. ദയവായി വീണ്ടും ശ്രമിക്കുക.")
             
