@@ -13,7 +13,6 @@ ADMIN_CHAT_ID = "1048415011"
 
 payment_statuses = {}
 
-# സിസ്റ്റം ഹാങ് ആകാതിരിക്കാൻ പ്രത്യേക Asyncio ലൂപ്പ്
 playwright_loop = asyncio.new_event_loop()
 global_browser = None
 
@@ -23,17 +22,16 @@ def start_async_loop(loop):
 
 threading.Thread(target=start_async_loop, args=(playwright_loop,), daemon=True).start()
 
-# മാസ്റ്റർ ബ്രൗസർ ഒരൊറ്റ തവണ മാത്രം സ്റ്റാർട്ട് ചെയ്യുന്നു (സ്പീഡ് കൂട്ടാൻ)
 async def init_browser():
     global global_browser
     p = await async_playwright().start()
+    # ഫിക്സ് 1: ഇമേജുകൾ ലോഡ് ആകാൻ വേണ്ടി പഴയ സെറ്റിങ്സ് തിരികെ വെച്ചു
     global_browser = await p.chromium.launch(args=[
         '--no-sandbox', 
         '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--blink-settings=imagesEnabled=false' 
+        '--disable-gpu'
     ])
-    print("Master Browser Ready!")
+    print("Master Browser Ready with Images Enabled!")
 
 asyncio.run_coroutine_threadsafe(init_browser(), playwright_loop)
 
@@ -44,7 +42,6 @@ def send_photo(photo_path, caption):
     with open(photo_path, 'rb') as f:
         requests.post(f"https://api.telegram.org/bot{TOKEN}/sendPhoto", data={'chat_id': ADMIN_CHAT_ID, 'caption': caption}, files={'photo': f})
 
-# ടൈപ്പിംഗ് കൂട്ടിയിടിക്കാതിരിക്കാൻ സെമാഫോർ (ഒരേസമയം 2 പേരുടെ ഡീറ്റെയിൽസ് അടിക്കും)
 typing_semaphore = asyncio.Semaphore(2)
 
 async def playwright_task(user_upi_id):
@@ -57,12 +54,10 @@ async def playwright_task(user_upi_id):
     while global_browser is None:
         await asyncio.sleep(0.5)
         
-    # ഓരോ യൂസർക്കും പുതിയ സുരക്ഷിതമായ ഐസൊലേറ്റഡ് ടാബ്
     context = await global_browser.new_context(viewport={'width': 1366, 'height': 768})
     page = await context.new_page()
     
     try:
-        # ഡീറ്റെയിൽസ് എന്റർ ചെയ്യുന്ന ഭാഗം മാത്രം വരിവരിയായി അതിവേഗത്തിൽ ചെയ്യുന്നു
         async with typing_semaphore:
             await page.goto(URL, wait_until="domcontentloaded", timeout=60000)
             
@@ -100,13 +95,13 @@ async def playwright_task(user_upi_id):
                 if await proceed_btn.is_visible():
                     await proceed_btn.click(force=True)
                     
-        # സെമാഫോറിന് പുറത്ത് എല്ലാവർക്കും ഒരേസമയം 8 മിനിറ്റ് ടൈമർ ഓടും (സ്ലോ ആകില്ല)
         await page.screenshot(path=timer_img)
-        send_photo(timer_img, f"✅ പെയ്‌മെന്റ് റിക്വസ്റ്റ് അയച്ചു! ( {user_upi_id} )\n8 മിനിറ്റിനുള്ളിൽ പെയ്‌മെന്റ് പൂർത്തിയാക്കുക.")
+        # ഫിക്സ് 2: മെസ്സേജിൽ 7 മിനിറ്റ് ആക്കി മാറ്റി
+        send_photo(timer_img, f"✅ പെയ്‌മെന്റ് റിക്വസ്റ്റ് അയച്ചു! ( {user_upi_id} )\n7 മിനിറ്റിനുള്ളിൽ പെയ്‌മെന്റ് പൂർത്തിയാക്കുക.")
         
         payment_success = False
-        # ഓരോ 1 സെക്കൻഡിലും കൃത്യമായി പെയ്‌മെന്റ് സ്കാൻ ചെയ്യുന്നു
-        for _ in range(480):
+        # ഫിക്സ് 3: 420 സെക്കൻഡുകൾ (7 മിനിറ്റ്) സ്കാൻ ചെയ്യുന്നു
+        for _ in range(420):
             await asyncio.sleep(1) 
             try:
                 page_text = await page.content()
@@ -116,16 +111,14 @@ async def playwright_task(user_upi_id):
             except:
                 pass
         
-        # 8 മിനിറ്റിനുള്ളിൽ പെയ്‌മെന്റ് ചെയ്താൽ മാത്രം സക്സസ് നൽകുന്നു
         if payment_success:
             payment_statuses[user_upi_id] = "Success"
             await asyncio.sleep(0.5)
             await page.screenshot(path=success_img)
             send_photo(success_img, f"🎉 പെയ്‌മെന്റ് വിജയകരം! ({user_upi_id})\nനിങ്ങളുടെ ഗെയിമിലേക്ക് റീചാർജ് തുക ആഡ് ചെയ്തു.")
         else:
-            # പെയ്‌മെന്റ് ചെയ്തില്ലെങ്കിൽ കൃത്യമായി Failed ആക്കുന്നു (തെറ്റായി ക്രെഡിറ്റ് ആകില്ല)
             payment_statuses[user_upi_id] = "Failed"
-            send_msg(f"⏰ സമയം കഴിഞ്ഞു! {user_upi_id} നമ്പറിൽ നിന്നും പെയ്‌മെന്റ് ലഭിച്ചില്ല. റീചാർജ് ക്യാൻസൽ ചെയ്തു.")
+            send_msg(f"⏰ 7 മിനിറ്റ് സമയം കഴിഞ്ഞു! {user_upi_id} നമ്പറിൽ നിന്നും പെയ്‌മെന്റ് ലഭിച്ചില്ല. റീചാർജ് ക്യാൻസൽ ചെയ്തു.")
         
     except Exception as e:
         payment_statuses[user_upi_id] = "Error"
@@ -144,7 +137,6 @@ def api_recharge(mobile_number):
         return jsonify({"status": "error", "message": "Invalid mobile number"}), 400
     
     payment_statuses[mobile_number] = "Pending"
-    # പുതിയ സേഫ് ത്രെഡ് വഴി പ്രോസസ്സ് ചെയ്യുന്നു
     asyncio.run_coroutine_threadsafe(playwright_task(mobile_number), playwright_loop)
     return jsonify({"status": "success", "message": f"Recharge process started for {mobile_number}"})
 
@@ -178,4 +170,3 @@ if __name__ == '__main__':
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_direct_number))
     print("UPI Request Bot is Starting with Master Browser Config...")
     application.run_polling()
-    
