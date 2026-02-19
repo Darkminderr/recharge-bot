@@ -22,69 +22,80 @@ def send_photo(photo_path, caption):
         requests.post(f"https://api.telegram.org/bot{TOKEN}/sendPhoto", data={'chat_id': ADMIN_CHAT_ID, 'caption': caption}, files={'photo': f})
 
 async def playwright_task(user_upi_id):
-    send_msg(f"⚡ അതിവേഗ പ്രോസസ്സിംഗ് തുടങ്ങുന്നു... (നമ്പർ: {user_upi_id})")
+    send_msg(f"⏳ ഡീറ്റെയിൽസ് എന്റർ ചെയ്യുന്നു... (നമ്പർ: {user_upi_id})")
     
+    # ഫിക്സ് 1: ഒരേസമയം പലർക്കും ചെയ്യാൻ ഓരോരുത്തർക്കും വ്യത്യസ്ത ഫയൽ പേരുകൾ
     timer_img = f"timer_{user_upi_id}.png"
     success_img = f"success_{user_upi_id}.png"
     error_img = f"error_{user_upi_id}.png"
     
     async with async_playwright() as p:
         try:
-            # ഫിക്സ് 1: ചിത്രങ്ങൾ ഒഴിവാക്കി ബ്രൗസർ സൂപ്പർ ഫാസ്റ്റ് ആക്കുന്നു
-            browser = await p.chromium.launch(args=[
-                '--no-sandbox', 
-                '--disable-dev-shm-usage',
-                '--disable-gpu',
-                '--blink-settings=imagesEnabled=false' 
-            ])
+            browser = await p.chromium.launch(args=['--no-sandbox', '--disable-dev-shm-usage'])
             browser_context = await browser.new_context(viewport={'width': 1366, 'height': 768})
             page = await browser_context.new_page()
             
             await page.goto(URL, wait_until="domcontentloaded", timeout=60000)
+            await asyncio.sleep(2) 
             
-            # ഫിക്സ് 2: വെറുതെയുള്ള കാത്തിരിപ്പുകൾ ഒഴിവാക്കി, സ്പീഡിൽ ടൈപ്പ് ചെയ്യുന്നു
             all_inputs = page.locator('input')
-            await all_inputs.first.wait_for(state="visible", timeout=10000)
+            await all_inputs.first.wait_for(state="visible", timeout=15000)
             await all_inputs.first.click(force=True)
-            await page.keyboard.type("sanjuchacko628@gmail.com", delay=0) # 0 ഡിലേ!
+            await page.keyboard.type("sanjuchacko628@gmail.com", delay=20)
+            
+            await asyncio.sleep(1)
             
             get_btn = page.locator('button.checkout-proceed-cta')
             await get_btn.last.click(force=True)
             
-            # UPI ബട്ടൺ വന്നാൽ ഉടനെ ക്ലിക്ക് ചെയ്യുക (സ്മാർട്ട് വെയിറ്റിംഗ്)
-            upi_btn = page.locator('text="UPI"').last
-            await upi_btn.wait_for(state="visible", timeout=8000)
-            await upi_btn.click(force=True)
+            send_msg("⏳ പെയ്‌മെന്റ് ഗേറ്റ്‌വേയിലേക്ക് കണക്ട് ചെയ്യുന്നു...")
+            await asyncio.sleep(3) 
+            
+            # ഫിക്സ് 2: UPI ബട്ടൺ വന്നില്ലെങ്കിൽ ഒന്നുകൂടി ക്ലിക്ക് ചെയ്യാനുള്ള സ്മാർട്ട് സിസ്റ്റം
+            try:
+                upi_btn = page.locator('text="UPI"').last
+                await upi_btn.wait_for(state="visible", timeout=6000)
+            except:
+                if await get_btn.last.is_visible():
+                    await get_btn.last.click(force=True)
+                    await asyncio.sleep(3)
+                    
+            await page.locator('text="UPI"').last.click(force=True)
+            await asyncio.sleep(1.5) 
             
             upi_input = page.locator('input[placeholder*="Mobile No."]').last
-            await upi_input.wait_for(state="visible", timeout=5000)
             await upi_input.click(force=True)
-            await page.keyboard.type(user_upi_id, delay=0) # 0 ഡിലേ!
+            await page.keyboard.type(user_upi_id, delay=30)
+            
+            await asyncio.sleep(2) 
             
             try:
                 verify_link = page.locator('text="Verify"').last
-                if await verify_link.is_visible(timeout=1000):
+                if await verify_link.is_visible(timeout=2000):
                     await verify_link.click(force=True)
+                    await asyncio.sleep(2) 
             except:
                 pass
             
             proceed_btn = page.locator('button:has-text("Proceed"):visible').last
-            await proceed_btn.wait_for(state="visible", timeout=5000)
+            await proceed_btn.wait_for(state="visible", timeout=10000)
             await proceed_btn.click(force=True)
+            
+            send_msg("⏳ പെയ്‌മെന്റ് ടൈമർ വിൻഡോ ലോഡ് ആകുന്നു...")
             
             try:
                 await page.wait_for_selector('text="PAGE EXPIRES IN"', timeout=10000)
             except:
                 if await proceed_btn.is_visible():
                     await proceed_btn.click(force=True)
+                    await asyncio.sleep(2)
                 
             await page.screenshot(path=timer_img)
-            send_photo(timer_img, f"✅ പെയ്‌മെന്റ് റിക്വസ്റ്റ് അയച്ചു! ( {user_upi_id} )\n8 മിനിറ്റിനുള്ളിൽ പെയ്‌മെന്റ് പൂർത്തിയാക്കുക.")
+            send_photo(timer_img, f"✅ നിങ്ങളുടെ നമ്പറിലേക്ക് ( {user_upi_id} ) പെയ്‌മെന്റ് റിക്വസ്റ്റ് അയച്ചിട്ടുണ്ട്!\n\nദയവായി നിങ്ങളുടെ ആപ്പ് തുറന്ന് 8 മിനിറ്റിനുള്ളിൽ പെയ്‌മെന്റ് പൂർത്തിയാക്കുക.")
             
-            # ഫിക്സ് 3: പെയ്‌മെന്റ് സക്സസ് സ്കാനിങ് അതിവേഗത്തിലാക്കി (ഓരോ 1 സെക്കൻഡിലും)
             payment_success = False
-            for _ in range(480):
-                await asyncio.sleep(1) 
+            for _ in range(240):
+                await asyncio.sleep(2) 
                 try:
                     page_text = await page.content()
                     if any(success_text in page_text for success_text in ["Payment Successful", "Purchase successful", "Payment made successfully", "Successful"]):
@@ -95,11 +106,12 @@ async def playwright_task(user_upi_id):
             
             if payment_success:
                 payment_statuses[user_upi_id] = "Success"
+                await asyncio.sleep(1) 
                 await page.screenshot(path=success_img)
-                send_photo(success_img, f"🎉 പെയ്‌മെന്റ് വിജയകരം! ({user_upi_id})")
+                send_photo(success_img, f"🎉 പെയ്‌മെന്റ് വിജയകരം! ({user_upi_id}) നിങ്ങളുടെ ഗെയിമിലേക്ക് റീചാർജ് തുക ആഡ് ചെയ്തു.")
             else:
                 payment_statuses[user_upi_id] = "Failed"
-                send_msg(f"⏰ സമയം കഴിഞ്ഞു! {user_upi_id} നമ്പറിൽ നിന്നും പെയ്‌മെന്റ് ലഭിച്ചില്ല.")
+                send_msg(f"⏰ 8 മിനിറ്റ് സമയം കഴിഞ്ഞു! {user_upi_id} എന്ന നമ്പറിൽ നിന്നും പെയ്‌മെന്റ് ലഭിച്ചില്ല.")
             
         except Exception as e:
             payment_statuses[user_upi_id] = "Error"
@@ -107,6 +119,7 @@ async def playwright_task(user_upi_id):
             send_photo(error_img, f"❌ ഒരു തടസ്സം നേരിട്ടു: {str(e)}\nനമ്പർ: {user_upi_id}")
         finally:
             await browser.close()
+            # ഫിക്സ് 3: ഉപയോഗിച്ച ഫയലുകൾ അപ്പോൾ തന്നെ ഡിലീറ്റ് ചെയ്യുന്നു (Storage full ആകാതിരിക്കാൻ)
             for img in [timer_img, success_img, error_img]:
                 try:
                     if os.path.exists(img):
@@ -139,7 +152,7 @@ def run_flask():
     app.run(host='0.0.0.0', port=port)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("✅ ബോട്ട് 24/7 ലൈവ് ആണ്! അതിവേഗ മോഡ് ആക്റ്റീവ്.")
+    await update.message.reply_text("✅ ബോട്ട് 24/7 ലൈവ് ആണ്! ഇനി /start അടിക്കേണ്ട ആവശ്യമില്ല.")
 
 async def handle_direct_number(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text.strip()
@@ -154,5 +167,5 @@ if __name__ == '__main__':
     application = ApplicationBuilder().token(TOKEN).build()
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_direct_number))
-    print("UPI Request Bot is Starting in SUPER FAST Mode...")
+    print("UPI Request Bot is Starting with Multi-User Support...")
     application.run_polling()
