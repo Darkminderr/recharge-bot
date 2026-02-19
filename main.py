@@ -12,7 +12,6 @@ TOKEN = '7510297537:AAEeCr_pl4CndrNCpBpr7Ac8mL3jlFKpyRk'
 URL = "https://superprofile.bio/vp/6994a964b7a14d00133409f7"
 ADMIN_CHAT_ID = "1048415011" 
 
-# ഫിക്സ്: ഓരോ നമ്പറിന്റെയും പെയ്‌മെന്റ് സ്റ്റാറ്റസ് സേവ് ചെയ്യാൻ ഒരു ഡിക്ഷണറി
 payment_statuses = {}
 
 def send_msg(text):
@@ -24,6 +23,11 @@ def send_photo(photo_path, caption):
 
 async def playwright_task(user_upi_id):
     send_msg(f"⏳ ഡീറ്റെയിൽസ് എന്റർ ചെയ്യുന്നു... (നമ്പർ: {user_upi_id})")
+    
+    # ഫിക്സ് 1: ഒരേസമയം പലർക്കും ചെയ്യാൻ ഓരോരുത്തർക്കും വ്യത്യസ്ത ഫയൽ പേരുകൾ
+    timer_img = f"timer_{user_upi_id}.png"
+    success_img = f"success_{user_upi_id}.png"
+    error_img = f"error_{user_upi_id}.png"
     
     async with async_playwright() as p:
         try:
@@ -47,6 +51,15 @@ async def playwright_task(user_upi_id):
             send_msg("⏳ പെയ്‌മെന്റ് ഗേറ്റ്‌വേയിലേക്ക് കണക്ട് ചെയ്യുന്നു...")
             await asyncio.sleep(3) 
             
+            # ഫിക്സ് 2: UPI ബട്ടൺ വന്നില്ലെങ്കിൽ ഒന്നുകൂടി ക്ലിക്ക് ചെയ്യാനുള്ള സ്മാർട്ട് സിസ്റ്റം
+            try:
+                upi_btn = page.locator('text="UPI"').last
+                await upi_btn.wait_for(state="visible", timeout=6000)
+            except:
+                if await get_btn.last.is_visible():
+                    await get_btn.last.click(force=True)
+                    await asyncio.sleep(3)
+                    
             await page.locator('text="UPI"').last.click(force=True)
             await asyncio.sleep(1.5) 
             
@@ -77,8 +90,8 @@ async def playwright_task(user_upi_id):
                     await proceed_btn.click(force=True)
                     await asyncio.sleep(2)
                 
-            await page.screenshot(path="timer.png")
-            send_photo("timer.png", f"✅ നിങ്ങളുടെ നമ്പറിലേക്ക് ( {user_upi_id} ) പെയ്‌മെന്റ് റിക്വസ്റ്റ് അയച്ചിട്ടുണ്ട്!\n\nദയവായി നിങ്ങളുടെ ആപ്പ് തുറന്ന് 8 മിനിറ്റിനുള്ളിൽ പെയ്‌മെന്റ് പൂർത്തിയാക്കുക.")
+            await page.screenshot(path=timer_img)
+            send_photo(timer_img, f"✅ നിങ്ങളുടെ നമ്പറിലേക്ക് ( {user_upi_id} ) പെയ്‌മെന്റ് റിക്വസ്റ്റ് അയച്ചിട്ടുണ്ട്!\n\nദയവായി നിങ്ങളുടെ ആപ്പ് തുറന്ന് 8 മിനിറ്റിനുള്ളിൽ പെയ്‌മെന്റ് പൂർത്തിയാക്കുക.")
             
             payment_success = False
             for _ in range(240):
@@ -92,23 +105,27 @@ async def playwright_task(user_upi_id):
                     pass
             
             if payment_success:
-                # ഫിക്സ്: പെയ്‌മെന്റ് സക്സസ് ആയാൽ സ്റ്റാറ്റസ് അപ്ഡേറ്റ് ചെയ്യുന്നു
                 payment_statuses[user_upi_id] = "Success"
                 await asyncio.sleep(1) 
-                await page.screenshot(path="success.png")
-                send_photo("success.png", f"🎉 പെയ്‌മെന്റ് വിജയകരം! ({user_upi_id}) നിങ്ങളുടെ ഗെയിമിലേക്ക് റീചാർജ് തുക ആഡ് ചെയ്തു.")
+                await page.screenshot(path=success_img)
+                send_photo(success_img, f"🎉 പെയ്‌മെന്റ് വിജയകരം! ({user_upi_id}) നിങ്ങളുടെ ഗെയിമിലേക്ക് റീചാർജ് തുക ആഡ് ചെയ്തു.")
             else:
-                # ഫിക്സ്: സമയം കഴിഞ്ഞാൽ Failed ആക്കുന്നു
                 payment_statuses[user_upi_id] = "Failed"
                 send_msg(f"⏰ 8 മിനിറ്റ് സമയം കഴിഞ്ഞു! {user_upi_id} എന്ന നമ്പറിൽ നിന്നും പെയ്‌മെന്റ് ലഭിച്ചില്ല.")
             
         except Exception as e:
-            # ഫിക്സ്: എറർ വന്നാൽ അതും സേവ് ചെയ്യുന്നു
             payment_statuses[user_upi_id] = "Error"
-            await page.screenshot(path="error.png")
-            send_photo("error.png", f"❌ ഒരു തടസ്സം നേരിട്ടു: {str(e)}")
+            await page.screenshot(path=error_img)
+            send_photo(error_img, f"❌ ഒരു തടസ്സം നേരിട്ടു: {str(e)}\nനമ്പർ: {user_upi_id}")
         finally:
             await browser.close()
+            # ഫിക്സ് 3: ഉപയോഗിച്ച ഫയലുകൾ അപ്പോൾ തന്നെ ഡിലീറ്റ് ചെയ്യുന്നു (Storage full ആകാതിരിക്കാൻ)
+            for img in [timer_img, success_img, error_img]:
+                try:
+                    if os.path.exists(img):
+                        os.remove(img)
+                except:
+                    pass
 
 def run_pw_thread(user_upi_id):
     asyncio.run(playwright_task(user_upi_id))
@@ -118,12 +135,10 @@ def api_recharge(mobile_number):
     if not re.fullmatch(r'\d{10}', mobile_number):
         return jsonify({"status": "error", "message": "Invalid mobile number"}), 400
     
-    # ഫിക്സ്: റീചാർജ് തുടങ്ങുമ്പോൾ തന്നെ Pending എന്ന് സെറ്റ് ചെയ്യുന്നു
     payment_statuses[mobile_number] = "Pending"
     Thread(target=run_pw_thread, args=(mobile_number,)).start()
     return jsonify({"status": "success", "message": f"Recharge process started for {mobile_number}"})
 
-# ഫിക്സ്: ഗെയിമിന് പെയ്‌മെന്റ് സ്റ്റാറ്റസ് ചെക്ക് ചെയ്യാനുള്ള പുതിയ API ലിങ്ക്
 @app.route('/api/status/<mobile_number>')
 def check_status(mobile_number):
     status = payment_statuses.get(mobile_number, "Not Found")
@@ -152,5 +167,5 @@ if __name__ == '__main__':
     application = ApplicationBuilder().token(TOKEN).build()
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_direct_number))
-    print("UPI Request Bot is Starting with 24/7 config...")
+    print("UPI Request Bot is Starting with Multi-User Support...")
     application.run_polling()
