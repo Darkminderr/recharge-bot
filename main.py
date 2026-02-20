@@ -8,11 +8,19 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 app = Flask('')
 
 TOKEN = '7510297537:AAEeCr_pl4CndrNCpBpr7Ac8mL3jlFKpyRk'
-AMOUNT = "200"
-URL_LIST = [
-    "https://superprofile.bio/vp/6994aa10b7a14d0013343131",
-    "https://superprofile.bio/vp/6994a9f46e580f00133ea7b4"
-]
+
+# URL_LIST മാറ്റി 200 നും 2000 നും ഉള്ള ലിങ്കുകൾ നൽകി
+URLS = {
+    "200": [
+        "https://superprofile.bio/vp/6994aa10b7a14d0013343131",
+        "https://superprofile.bio/vp/6994a9f46e580f00133ea7b4"
+    ],
+    "2000": [
+        "https://superprofile.bio/vp/6994a9a6b7a14d0013341920",
+        "https://superprofile.bio/vp/6994a9d0b7a14d00133422cd"
+    ]
+}
+
 ADMIN_CHAT_ID = "1048415011"
 payment_statuses = {}
 EMAIL_LIST = ["qvqgauwbsb23e@gmail.com", "jaiwbvwab@gmail.com", "jaisjsnsn@gmail.com", "jaisnansn@gmail.com", "prkdksks@gmail.com", "jaiskannsms@gmail.com", "jaiakananssn@gmail.com", "jakoaksnsns@gmail.com", "jaiskasm@gmail.com", "jakoaoakaa@gmail.com", "jeowoalkssk@gmail.com", "jeiwoalkskek@gmail.com", "jwiwoaoals@gmail.com"]
@@ -31,7 +39,7 @@ async def init_browser():
     global global_browser
     p = await async_playwright().start()
     global_browser = await p.chromium.launch(args=['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu'])
-    print(f"Browser Ready for Rs.{AMOUNT} Bot!")
+    print("Browser Ready for Rs.200 and Rs.2000 Bot!")
 
 asyncio.run_coroutine_threadsafe(init_browser(), playwright_loop)
 
@@ -48,13 +56,13 @@ def send_photo(photo_path, caption):
 
 typing_semaphore = asyncio.Semaphore(2)
 
-async def playwright_task(user_upi_id):
+async def playwright_task(user_upi_id, amount):
     global active_requests
     active_requests += 1
     queue_pos = active_requests - 2
     
-    if queue_pos > 0: send_msg(f"⏳ ക്യൂവിലാണ് ({user_upi_id} | ₹{AMOUNT}). സ്ഥാനം: {queue_pos}")
-    else: send_msg(f"⚡ പ്രോസസ്സ് തുടങ്ങുന്നു ({user_upi_id} | ₹{AMOUNT})...")
+    if queue_pos > 0: send_msg(f"⏳ ക്യൂവിലാണ് ({user_upi_id} | ₹{amount}). സ്ഥാനം: {queue_pos}")
+    else: send_msg(f"⚡ പ്രോസസ്സ് തുടങ്ങുന്നു ({user_upi_id} | ₹{amount})...")
     
     timer_img, success_img, error_img = f"t_{user_upi_id}.png", f"s_{user_upi_id}.png", f"e_{user_upi_id}.png"
     while global_browser is None: await asyncio.sleep(0.5)
@@ -62,11 +70,12 @@ async def playwright_task(user_upi_id):
     
     try:
         async with typing_semaphore:
-            if queue_pos > 0: send_msg(f"🚀 ഊഴം എത്തി! {user_upi_id} (₹{AMOUNT}) ആരംഭിച്ചു.")
+            if queue_pos > 0: send_msg(f"🚀 ഊഴം എത്തി! {user_upi_id} (₹{amount}) ആരംഭിച്ചു.")
             context = await global_browser.new_context(viewport={'width': 1366, 'height': 768})
             page = await context.new_page()
             
-            await page.goto(random.choice(URL_LIST), wait_until="domcontentloaded", timeout=60000)
+            # എമൗണ്ട് അനുസരിച്ചുള്ള ലിങ്ക് എടുക്കാൻ മാറ്റി
+            await page.goto(random.choice(URLS[amount]), wait_until="domcontentloaded", timeout=60000)
             all_inputs = page.locator('input')
             await all_inputs.first.wait_for(state="visible", timeout=30000)
             await all_inputs.first.click(force=True)
@@ -96,7 +105,7 @@ async def playwright_task(user_upi_id):
                 if await proceed_btn.is_visible(): await proceed_btn.click(force=True)
                     
             await page.screenshot(path=timer_img)
-            send_photo(timer_img, f"✅ റിക്വസ്റ്റ് അയച്ചു! ({user_upi_id} | ₹{AMOUNT})\n3 മിനിറ്റിനുള്ളിൽ പൂർത്തിയാക്കുക.")
+            send_photo(timer_img, f"✅ റിക്വസ്റ്റ് അയച്ചു! ({user_upi_id} | ₹{amount})\n3 മിനിറ്റിനുള്ളിൽ പൂർത്തിയാക്കുക.")
             
             payment_success = False
             for _ in range(90):
@@ -107,16 +116,16 @@ async def playwright_task(user_upi_id):
                 except: pass
             
             if payment_success:
-                payment_statuses[user_upi_id] = "Success"
+                payment_statuses[user_upi_id] = {"status": "Success", "amount": amount}
                 await asyncio.sleep(1)
                 await page.screenshot(path=success_img)
-                send_photo(success_img, f"🎉 വിജയകരം! ({user_upi_id})\n₹{AMOUNT} ആഡ് ചെയ്തു.")
+                send_photo(success_img, f"🎉 വിജയകരം! ({user_upi_id})\n₹{amount} ആഡ് ചെയ്തു.")
             else:
-                payment_statuses[user_upi_id] = "Failed"
-                send_msg(f"⏰ 3 മിനിറ്റ് കഴിഞ്ഞു! {user_upi_id} (₹{AMOUNT}) ക്യാൻസൽ ചെയ്തു.")
+                payment_statuses[user_upi_id] = {"status": "Failed", "amount": amount}
+                send_msg(f"⏰ 3 മിനിറ്റ് കഴിഞ്ഞു! {user_upi_id} (₹{amount}) ക്യാൻസൽ ചെയ്തു.")
         
     except Exception as e:
-        payment_statuses[user_upi_id] = "Error"
+        payment_statuses[user_upi_id] = {"status": "Error", "amount": amount}
         if page:
             try: await page.screenshot(path=error_img)
             except: pass
@@ -128,18 +137,25 @@ async def playwright_task(user_upi_id):
             try: os.remove(img)
             except: pass
 
-@app.route('/api/recharge/<mobile_number>')
-def api_recharge(mobile_number):
+# API ലിങ്കിൽ എമൗണ്ട് കൂടി ചേർത്തു
+@app.route('/api/recharge/<amount>/<mobile_number>')
+def api_recharge(amount, mobile_number):
+    if amount not in URLS: return jsonify({"status": "error", "message": "Invalid amount"}), 400
     if not re.fullmatch(r'\d{10}', mobile_number): return jsonify({"status": "error"}), 400
-    payment_statuses[mobile_number] = "Pending"
-    asyncio.run_coroutine_threadsafe(playwright_task(mobile_number), playwright_loop)
-    return jsonify({"status": "success"})
+    
+    payment_statuses[mobile_number] = {"status": "Pending", "amount": amount}
+    asyncio.run_coroutine_threadsafe(playwright_task(mobile_number, amount), playwright_loop)
+    return jsonify({"status": "success", "amount": amount})
 
 @app.route('/api/status/<mobile_number>')
-def check_status(mobile_number): return jsonify({"mobile": mobile_number, "status": payment_statuses.get(mobile_number, "Not Found"), "amount": AMOUNT})
+def check_status(mobile_number): 
+    data = payment_statuses.get(mobile_number, {"status": "Not Found", "amount": "0"})
+    if isinstance(data, str): 
+        return jsonify({"mobile": mobile_number, "status": data, "amount": "Unknown"})
+    return jsonify({"mobile": mobile_number, "status": data["status"], "amount": data["amount"]})
 
 @app.route('/')
-def home(): return f"Bot ₹{AMOUNT} is Running!"
+def home(): return "Bot (Rs.200 & Rs.2000) is Running!"
 
 def run_flask(): app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8080)))
 
@@ -148,8 +164,19 @@ def run_polling_with_retry():
         try:
             asyncio.set_event_loop(asyncio.new_event_loop())
             application = ApplicationBuilder().token(TOKEN).build()
-            application.add_handler(CommandHandler("start", lambda u,c: u.message.reply_text(f"✅ ₹{AMOUNT} ബോട്ട് ലൈവ് ആണ്!")))
-            application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, lambda u,c: asyncio.run_coroutine_threadsafe(playwright_task(u.message.text.strip()), playwright_loop) if re.fullmatch(r'\d{10}', u.message.text.strip()) else u.message.reply_text("⚠️ 10 അക്ക നമ്പർ നൽകുക.")))
+            application.add_handler(CommandHandler("start", lambda u,c: u.message.reply_text("✅ 200 & 2000 ബോട്ട് ലൈവ് ആണ്!")))
+            
+            # ടെലിഗ്രാമിൽ എമൗണ്ട് വെച്ച് നമ്പർ കൊടുക്കാൻ മാറ്റി
+            async def handle_text(u, c):
+                text = u.message.text.strip().split()
+                if len(text) == 2 and text[0] in URLS and re.fullmatch(r'\d{10}', text[1]):
+                    amount, mobile = text[0], text[1]
+                    payment_statuses[mobile] = {"status": "Pending", "amount": amount}
+                    asyncio.run_coroutine_threadsafe(playwright_task(mobile, amount), playwright_loop)
+                else:
+                    await u.message.reply_text("⚠️ ദയവായി എമൗണ്ടും നമ്പറും ചേർത്ത് നൽകുക. ഉദാഹരണത്തിന്:\n200 9876543210\nഅല്ലെങ്കിൽ\n2000 9876543210")
+                    
+            application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
             application.run_polling(drop_pending_updates=True)
         except: time.sleep(5)
 
